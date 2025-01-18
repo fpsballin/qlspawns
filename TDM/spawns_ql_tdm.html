@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!-- <script src="//code.jquery.com/jquery-1.9.1.min.js"></script> -->
+<script>
+window.onload = function(){
+  // intentional global variables
+  MAX_TEAMMATE_CIRCLES = 3;
+  MAP_PADDING = 10;
+  c = document.getElementById("myCanvas");
+  ctx = c.getContext("2d");
+  blueCircles = new Array();
+  c.addEventListener('mousedown',checkpoint2);
+  c.addEventListener('mousemove',checkpoint);
+  drawMaps();
+}
+
+CIRCLE_SIZE = 12
+CIRCLE_SIZE_SMALL = 12
+
+function checkpoint(e){
+  //drawMaps();
+  point = getMousePos(e);
+  //console.log(point.x+", "+point.y);
+  //drawCircle(point.x, point.y, 5, "blue", -1);
+  for(var i=0; i<mapSpawns.length; i++) {
+    colorSpawns(point, mapSpawns[i]);
+  }
+}
+
+function checkpoint2(e){
+  function checkpoint2callback() {
+    point = getMousePos(e);
+    console.log(point.x+", "+point.y);
+    if(blueCircles.length >= MAX_TEAMMATE_CIRCLES) {
+	  blueCircles.length = 0;
+    } else {
+	  blueCircles.push(point)
+	  for(var i=0; i<blueCircles.length; i++) {
+		drawCircle(blueCircles[i].x, blueCircles[i].y, CIRCLE_SIZE, "fuchsia", -1);
+	  }
+    }
+    for(var i=0; i<mapSpawns.length; i++) {
+      colorSpawns(point, mapSpawns[i]);
+    }
+  }
+  drawMaps(checkpoint2callback);
+}
+
+function getMousePos(e) {
+  // get canvas position
+  var obj = c;
+  var top = 0;
+  var left = 0;
+  while (obj && obj.tagName != 'BODY') {
+    top += obj.offsetTop;
+    left += obj.offsetLeft;
+    obj = obj.offsetParent;
+  }
+  var mouseX = e.pageX - left;
+  var mouseY = e.pageY - top;
+  return {x: mouseX,
+          y: mouseY
+         };
+}
+
+function colorSpawns(point, spawns) {
+  var points = blueCircles.slice();
+  points.push(point);
+  //var distances = getAverageDistances(points, spawns);
+  var distances = getMinDistances(points, spawns);
+  var tup = get3Furthest(distances);
+  var furthest3 = tup[0]
+  var furthest3Distances = tup[1];
+  for(var i=0; i<spawns.length; i++) {
+	var num = i;
+    if(furthest3.includes(i)) {
+	  var dist = distances[i];
+	  var countOccurrences = furthest3Distances.reduce(
+		  (a, v) => (v == dist ? a+1 : a), 0);
+	  if(countOccurrences >= 2) {
+		var color = "Aqua"
+		var size = CIRCLE_SIZE;
+	  } else {
+        var color = "LawnGreen";
+	    var size = CIRCLE_SIZE;
+	  }
+    } else {
+	  var dist = distances[i];
+	  var countOccurrences = distances.reduce(
+		  (a, v) => (v == dist ? a+1 : a), 0);
+	  if(countOccurrences >= 2) {
+	    var color = "BlueViolet";
+		var size = CIRCLE_SIZE_SMALL;
+	  } else {
+        var color = "red";
+	    var size = CIRCLE_SIZE_SMALL;
+	  }
+    }
+    drawCircle(spawns[i][0], spawns[i][1], size, color, num);
+  }
+}
+
+// Average the current point with the blueCircles
+function getAverageDistances(points, spawns) {
+  var averageDistances = new Array();
+  for(var i=0; i<spawns.length; i++) {
+	averageDistances[i] = 0;
+  }
+  for(var i=0; i<points.length; i++) {
+    var distances = getDistances(points[i], spawns);
+    for(var j=0; j<distances.length; j++) {
+		averageDistances[j] += distances[j];
+	}
+  }
+  for(var i=0; i<averageDistances.length; i++) {
+	averageDistances[i] = averageDistances[i] / points.length;
+  }
+  return averageDistances;
+}
+
+function getMinDistances(points, spawns) {
+  var minDistances = new Array();
+  for(var i=0; i<spawns.length; i++) {
+	minDistances[i] = Infinity;
+  }
+  for(var i=0; i<points.length; i++) {
+    var distances = getDistances(points[i], spawns);
+    for(var j=0; j<distances.length; j++) {
+		minDistances[j] = Math.min(distances[j], minDistances[j]);
+	}
+  }
+  for(var i=0; i<minDistances.length; i++) {
+	minDistances[i] = minDistances[i] / points.length;
+  }
+  return minDistances;
+}
+
+function getDistances(point, spawns) {
+  var distances = new Array();
+  for(var i=0; i<spawns.length; i++) {
+    var dist = distance(point.x, point.y, spawns[i][0], spawns[i][1]);
+    distances.push(dist);
+  }
+  return distances;
+}
+
+// get furthest HALF since it's QL not DBT
+function get3Furthest(distances) {
+	var distancesAndIndices = new Array();
+	for(var i=0; i<distances.length; i++) {
+		distancesAndIndices[i] = [distances[i], i];
+	}
+	function comp(a, b) {
+		distA = a[0];
+		indexA = a[1];
+		distB = b[0];
+		indexB = b[1];
+		if(distA == distB) {
+			return indexB - indexA;
+		} else {
+			return distB - distA
+		}
+	}
+	distancesAndIndices.sort(comp);
+	var furthest3 = new Array();
+	var furthest3Distances = new Array();
+	for(var i=0; i<(distances.length)/2; i++) {
+		furthest3[i] = distancesAndIndices[i][1];
+		furthest3Distances[i] = distancesAndIndices[i][0];
+	}
+	return [furthest3, furthest3Distances];
+}
+
+function min(arr) {
+  var smallest = arr[0];
+  for(var i=1; i<arr.length; i++) {
+    if(arr[i] < smallest) {
+      smallest = arr[i];
+    }
+  }
+  return smallest;
+}
+
+function distance(x1, y1, x2,y2){
+    var dx = x2-x1;
+    var dy = y2-y1;
+    return Math.sqrt(dx*dx+dy*dy);
+}
+
+function drawCircle(centerX, centerY, radius, color, num) {
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "black";
+  if (num >= 0) {
+	ctx.fillText(num, centerX-5*(1+num/10), centerY+5);
+  }
+}
+
+function drawMap(name, src, x, y, additional_names=[], callback=function(y_val) {}) {
+  var map = new Image();
+  map.onload = function() {
+	ctx.drawImage(map, x, y);
+	ctx.font = "18px Arial";
+	ctx.fillStyle = "white";
+	ctx.fillText(name, x+5, y+20);
+	for(var i=0; i<additional_names.length; i++) {
+		ctx.fillText(additional_names[i], x+5, y+20*(i+2))
+	}
+	callback(y+map.height+MAP_PADDING);
+  }
+  map.src = src;
+  return map;
+}
+
+function drawMaps(callback) {
+	// a chain of callbacks to ensure each map loads sequentially (instead of loading on top of each other)
+	// I didn't indent for easier copy pasting to add more maps here
+	drawMap("hiddenfortress", "hiddenfortress.jpg", 0, 0, [], function(y) {
+	drawMap("purgatory", "purgatory.jpg", 0, y, [], function(y) {
+	drawMap("limbus", "limbus.jpg", 0, y, [], function(y) {
+	drawMap("dreadfulplace", "dreadfulplace.jpg", 0, y, [], function(y) {
+	drawMap("deepinside", "deepinside.jpg", 0, y, [], function(y) {
+	drawMap("grimdungeons", "grimdungeons.jpg", 0, y, [], function(y) {
+		if (typeof callback === "function") {
+			callback();
+		}
+	})})})})})})
+}
+
+// spawn data
+var hiddenfortressSpawns = new Array();
+hiddenfortressSpawns[0] = [497, 211]; // quad shotgun
+hiddenfortressSpawns[1] = [257, 397]; // high bridge corner
+hiddenfortressSpawns[2] = [258, 798]; // high bridge tele exit
+hiddenfortressSpawns[3] = [171, 710]; // low bridge 50 bubble
+hiddenfortressSpawns[4] = [663, 635]; // plasma
+hiddenfortressSpawns[5] = [708, 665]; // mega
+hiddenfortressSpawns[6] = [1034, 575]; // low canyon RL
+hiddenfortressSpawns[7] = [875, 457]; // low canyon towards tele
+var purgatorySpawns = new Array();
+purgatorySpawns[0] = [382, 1754]; // high battlesuit (rail side yellow)
+purgatorySpawns[1] = [310, 1980]; // below battlesuit shotgun (rail side yellow)
+purgatorySpawns[2] = [923, 1882]; // tele exit (rocket side yellow)
+purgatorySpawns[3] = [748, 2092]; // 50 bubble (by red)
+purgatorySpawns[4] = [820, 2125]; // ammo boxes (by red)
+purgatorySpawns[5] = [549, 2304]; // shaft (corner by red)
+purgatorySpawns[6] = [669, 2267]; // plasma (basement)
+purgatorySpawns[7] = [903, 2224]; // mega
+purgatorySpawns[8] = [418, 2333]; // basement shards (below rail)
+purgatorySpawns[9] = [669, 2435]; // window by RL and MG ammo
+purgatorySpawns[10] = [434, 2549]; // above rail and quad
+purgatorySpawns[11] = [493, 2560]; // quad ammo boxes
+purgatorySpawns[12] = [890, 2583]; // quad shotgun corner below 50 bubble?
+purgatorySpawns[13] = [1033, 2133]; // nook between GL and RL side yellow
+purgatorySpawns[14] = [330, 2456]; // rail
+var limbusSpawns = new Array();
+limbusSpawns[0] = [149, 3465]; // bubbles stairs
+limbusSpawns[1] = [277, 3444]; // red room by rocket launcher
+limbusSpawns[2] = [409, 3253]; // red room above rocket
+limbusSpawns[3] = [435, 3275]; // basement shards below red (by 25hp bubbles)
+limbusSpawns[4] = [563, 3605]; // red basement room below shotgun
+limbusSpawns[5] = [687, 3293]; // high rail room by plasma ammo box
+limbusSpawns[6] = [848, 3320]; // mega
+limbusSpawns[7] = [967, 3518]; // rocket yellow
+limbusSpawns[8] = [668, 3615]; // high rocket above rail (in the window above rail)
+limbusSpawns[9] = [743, 3678]; // rail room shards
+limbusSpawns[10] = [1088, 3765]; // hallway behind quad
+limbusSpawns[11] = [950, 3835]; // shaft
+limbusSpawns[12] = [494, 4048]; // low pillars
+limbusSpawns[13] = [447, 3915]; // tower (high pillars)
+var dreadfulplaceSpawns = new Array();
+dreadfulplaceSpawns[0] = [122, 5089]; // rocket
+dreadfulplaceSpawns[1] = [462, 4925]; // yellow
+dreadfulplaceSpawns[2] = [330, 4737]; // 50 bubble (by yellow)
+dreadfulplaceSpawns[3] = [565, 4834]; // shaft
+dreadfulplaceSpawns[4] = [717, 5049]; // balcony (across from red leading to shaft)
+dreadfulplaceSpawns[5] = [520, 5149]; // U connector towards rocket
+dreadfulplaceSpawns[6] = [777, 4882]; // mega shotgun
+dreadfulplaceSpawns[7] = [710, 5489]; // red plasma
+dreadfulplaceSpawns[8] = [952, 5108]; // green armor (low quad jump pad)
+dreadfulplaceSpawns[9] = [999, 4909]; // GL to quad hallway by the plasma and shotgun ammo boxes
+dreadfulplaceSpawns[10] = [1063, 4833]; // rail
+dreadfulplaceSpawns[11] = [942, 5278]; // quad 50 bubble
+dreadfulplaceSpawns[12] = [1140, 5292]; // quad shotgun
+var deepinsideSpawns = new Array();
+deepinsideSpawns[0] = [250, 6284] // weak rocket
+deepinsideSpawns[1] = [692, 6019] // shaft
+deepinsideSpawns[2] = [1184, 6190] // GL (red)
+deepinsideSpawns[3] = [637, 6484] // low yellow ?
+deepinsideSpawns[4] = [728, 6434] // central room (shotgun)
+deepinsideSpawns[5] = [795, 6492] // strong RL (above the little jump pad from shaft)
+deepinsideSpawns[6] = [477, 6727] // quad (plasma)
+deepinsideSpawns[7] = [539, 6892] // below quad (shotgun)
+deepinsideSpawns[8] = [875, 6880] // rail
+deepinsideSpawns[9] = [974, 6873] // mega
+
+//var grimdungeonsSpawns = new Array();
+var mapSpawns = [hiddenfortressSpawns, purgatorySpawns, limbusSpawns, dreadfulplaceSpawns, deepinsideSpawns];
+//var mapSpawns = [hiddenfortressSpawns, purgatorySpawns, limbusSpawns, dreadfulplaceSpawns, deepinsideSpawns, grimdungeonsSpawns];
+
+</script>
+  <meta charset="utf-8">
+  <title>Spawns QL TDM</title>
+</head>
+<body>
+  <div id="holder">
+    <canvas id="myCanvas" width="1550" height="9427"></canvas>
+  </div>
+</body>
+</html>
