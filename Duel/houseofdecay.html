@@ -1,0 +1,209 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <script>
+			function writeMessage(canvas, message){
+				var context = canvas.getContext('2d');
+				context.font = '18pt Calibri';
+				context.fillStyle = 'black';
+				context.fillText(message, 10, 25);
+			}
+			
+			function drawSpawn(canvas, x, y, color, radius){
+				var context = canvas.getContext('2d');
+				context.beginPath();
+				context.arc(x, y, radius, 0, 2 * Math.PI, false);
+				context.fillStyle = color;
+				context.fill();
+				context.lineWidth = 3;
+				context.strokeStyle = "black";
+				context.stroke();
+			}
+			
+			function drawCircleFill(canvas, x, y, color, radius){
+				var context = canvas.getContext('2d');
+				context.beginPath();
+				context.arc(x, y, radius, 0, 2 * Math.PI, false);
+				context.fillStyle = color;
+				context.fill();
+			}
+			
+			function drawCircle(canvas, x, y, radius){
+				var context = canvas.getContext('2d');
+				context.beginPath();
+				context.arc(x, y, radius, 0, 2 * Math.PI, false);
+				context.lineWidth = 3;
+				context.strokeStyle = "black";
+				context.stroke();
+			}
+			
+			function drawRadius(canvas, x, y, radius){
+				var context = canvas.getContext('2d');
+				context.beginPath();
+				context.moveTo(x + radius, y + radius);
+				context.lineTo(x + radius, y - radius);
+				context.lineTo(x - radius, y - radius);
+				context.lineTo(x - radius, y + radius);
+				context.lineTo(x + radius, y + radius);
+				context.lineWidth = 1;
+				context.strokeStyle = "#000000"; // line color
+				context.stroke();
+			}
+			
+			function drawSpawns(canvas, mousePos){
+			
+				// Colors
+				var possible = "rgba(0, 255, 0, 0.8)"
+				var rejected = "rgba(170, 51, 51, 0.8)"
+				
+				///////////////////////
+				// Map Specific Data //
+				///////////////////////
+				
+				//var mapOrigin = [-890, 776, -48] 	// top, left, lowestSP
+				//var mapEnd = 	[1274, -846, 376]	// bottom, right, highestSP
+				//var visSize = 	[992, 744, 6]		// width, height, spSizeRange
+				var mapOrigin = [0, 0, 0]
+				var mapEnd = [762, 509, 376]
+				var visSize = [762, 509, 6]
+												
+				var spawnCount = 6
+				var middleVal = 3
+				
+				var spawns = new Array()			
+				spawns[0] = [170, 254, 0]; // back
+				spawns[1] = [232, 121, 0]; // rocket
+				spawns[2] = [363, 110, 0]; // mid, side towards rocket
+				spawns[3] = [465, 109, 0]; // mid, side towards LG
+				spawns[4] = [656, 233, 0];
+				spawns[5] = [661, 373, 100];
+				
+				// x,y coordinates used for location
+				// z coordinate used for spawn size
+				
+				/////////////////
+				// Common Code //
+				/////////////////
+				
+				// Scale spawns
+				var mapSize = [mapEnd[0] - mapOrigin[0], mapEnd[1] - mapOrigin[1], mapEnd[2] - mapOrigin[2]]
+				var scaling = [visSize[0] / mapSize[0], visSize[1] / mapSize[1], visSize[2] / mapSize[2]]
+				var i = 0
+				for(i = 0; i < spawnCount; i++)
+				{
+					//spawns[i][0] = (spawns[i][0] - mapOrigin[0]) * scaling[0]
+					//spawns[i][1] = (spawns[i][1] - mapOrigin[1]) * scaling[1]
+					spawns[i][2] = (spawns[i][2] - mapOrigin[2]) * scaling[2]
+				}
+				
+				// Compute distances
+				var dist = new Array()
+				for(i = 0; i < spawnCount; i++)
+				{
+					var dx = Math.abs(mousePos.x - spawns[i][0])
+					var dy = Math.abs(mousePos.y - spawns[i][1])					
+					dist[i] = { 'max' : Math.max(dx,dy), 'min' : Math.min(dx,dy), 'idx' : i }
+				}
+				
+				// Sort distances
+				var sortedDist = new Array()
+				for(i = 0; i < spawnCount; i++)
+				{
+					sortedDist[i] = dist[i]
+				}
+				sortedDist.sort(function(a,b)
+				{
+				if(a.max === b.max)
+					return b.idx - a.idx
+				else
+					return a.max - b.max
+				})
+				
+				// Display spawns
+				drawRadius(canvas, mousePos.x, mousePos.y, sortedDist[middleVal-1].max)
+				var possCount = spawnCount - middleVal
+				var c = 0
+				for(i = 0; i < spawnCount; i++) {
+					var idx = sortedDist[spawnCount - 1 - i].idx					
+					var radius = 8 + spawns[idx][2]
+					if(dist[i] >= sortedDist[middleVal] && c < possCount){
+						drawCircleFill(canvas, spawns[idx][0], spawns[idx][1], possible, radius)
+						c++
+					} else {
+						drawCircleFill(canvas, spawns[idx][0], spawns[idx][1], rejected, radius)
+					}
+				}
+				
+				for(i = 0; i < spawnCount; i++){
+					var radius = 8 + spawns[i][2]
+					drawCircle(canvas, spawns[i][0], spawns[i][1], radius)
+				}
+			}
+			
+			function drawCursor(canvas, mousePos){
+				var color = "#8ED6FF";
+				drawSpawn(canvas, mousePos.x, mousePos.y, color, 12);
+			}
+			
+			function getMousePos(canvas, evt){
+				// get canvas position
+				var obj = canvas;
+				var top = 0;
+				var left = 0;
+				while (obj && obj.tagName != 'BODY') {
+					top += obj.offsetTop;
+					left += obj.offsetLeft;
+					obj = obj.offsetParent;
+				}
+			 
+				// return relative mouse position
+				var mouseX = evt.clientX - left + window.pageXOffset;
+				var mouseY = evt.clientY - top + window.pageYOffset;
+				return {
+					x: mouseX,
+					y: mouseY
+				};
+			}
+            window.onload = function(){
+                var canvas = document.getElementById("myCanvas");
+                var context = canvas.getContext("2d");
+				
+				writeMessage(canvas, "Move your mouse over here...")
+				
+				var destX = 0;
+				var destY = 0;
+				var mapImage = new Image();
+			 
+				mapImage.onload = function(){
+				};
+				mapImage.src = "houseofdecay.png";
+				
+				var legendImage = new Image();
+				legendImage.onload = function(){					
+				};
+				legendImage.src = "legend.png";
+				
+				canvas.addEventListener('mousemove', function(evt){
+					var mousePos = getMousePos(canvas, evt);					
+					context.drawImage(mapImage, destX, destY);
+					context.drawImage(legendImage, destX, destY - 56);
+					writeMessage(canvas, "Interactive Spawn Visualization - by Memento_Mori")
+					drawSpawns(canvas, mousePos);
+					drawCursor(canvas, mousePos);
+				}, false);
+				
+				canvas.addEventListener('mousedown', function(evt){
+						point = getMousePos(canvas, evt);
+						console.log(point.x+", "+point.y);
+				}, false);
+				
+            };
+ 
+        </script>
+    </head>
+    <body>
+        <canvas id="myCanvas" width="762" height="509">
+        </canvas>
+		<div><p>This is done by hand and untested, so it is not guaranteed to be right.</p></div>
+    </body>
+</html>
